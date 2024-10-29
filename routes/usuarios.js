@@ -10,7 +10,37 @@ router.get('/', async (req, res) => {
     } catch (err) {
       res.status(500).send(err.message);
     }
-  });
+});
+
+// Rota para login
+router.post('/login', async (req, res) => {
+  const { username, senha } = req.body;
+
+  try {
+      const result = await pool.query(
+          'SELECT * FROM login_usuario($1, $2)',
+          [username, senha]
+      );
+
+      if (result.rows.length > 0) {
+          res.status(200).json({
+              success: true,
+              data: result.rows[0],
+          });
+      } else {
+          res.status(401).json({
+              success: false,
+              message: 'Usuário ou senha inválidos',
+          });
+      }
+  } catch (error) {
+      console.error('Erro ao fazer login:', error);
+      res.status(500).json({
+          success: false,
+          message: 'Erro interno do servidor',
+      });
+  }
+});
 
 // Rota para adicionar um usuário
 router.post('/', async (req, res) => {
