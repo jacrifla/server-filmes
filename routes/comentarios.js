@@ -5,34 +5,60 @@ const pool = require('../db/pool');
 // Consultar comentários de um filme**
 router.get('/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
-try {
-  const result = await pool.query('SELECT * FROM consultar_comentarios($1)', [tmdb_id]);
-  res.json(result.rows);
-} catch (error) {
-  res.status(500).json({ error: 'Erro ao consultar comentários', details: error.message });
-}
+  try {
+    const result = await pool.query('SELECT * FROM Comentarios WHERE tmdb_id = $1 AND deleted_at IS NULL', [tmdb_id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Comentários não encontrados para este filme',
+      })
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result.rows
+    })
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro: ' + error.message,
+    });
+  }
 });
 
 // Adicionar um comentário
-router.post('/', async (req, res) => {
+router.post('/add', async (req, res) => {
     const { usuario_id, tmdb_id, comentario } = req.body;
   try {
-    await pool.query('SELECT adicionar_comentario($1, $2, $3)', [usuario_id, tmdb_id, comentario]);
-    res.status(201).json({ message: 'Comentário adicionado com sucesso' });
+    await pool.query('INSERT INTO Comentarios (usuario_id, tmdb_id, comentario) VALUES ($1, $2, $3)', [usuario_id, tmdb_id, comentario]);
+    res.status(201).json({ 
+      success: true,
+      message: 'Comentário adicionado com sucesso' 
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao adicionar comentário', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro: ' + error.message,
+    });
   }
 });
 
 // Editar um comentário
-router.put('/:id', async (req, res) => {
+router.put('/update/:id', async (req, res) => {
     const { id } = req.params;
   const { comentario } = req.body;
   try {
-    await pool.query('SELECT editar_comentario($1, $2)', [id, comentario]);
-    res.json({ message: 'Comentário editado com sucesso' });
+    await pool.query('UPDATE Comentarios SET comentario = $1 WHERE id = $2', [comentario, id]);
+    res.json({
+      success: true,
+      message: 'Comentário editado com sucesso',
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao editar comentário', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro: ' + error.message,
+    });
   }
 });
 
@@ -40,10 +66,16 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
   try {
-    await pool.query('SELECT deletar_comentario($1)', [id]);
-    res.json({ message: 'Comentário deletado com sucesso' });
+    await pool.query('UPDATE Comentarios SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1 AND deleted_at IS NULL', [id]);
+    res.json({ 
+      success: true,
+      message: 'Comentário deletado com sucesso' 
+    });
   } catch (error) {
-    res.status(500).json({ error: 'Erro ao deletar comentário', details: error.message });
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro: ' + error.message,
+    });
   }
 });
 
