@@ -2,7 +2,23 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 
-// Consultar comentários de um filme**
+// Consultar todos os comentario 
+router.get('/all', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM Comentarios WHERE deleted_at IS NULL');
+    res.status(200).json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({ 
+      success: false,
+      error: 'Erro:'+ error.message,
+    });
+  }
+})
+
+// Consultar comentários de um filme
 router.get('/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
   try {
@@ -32,6 +48,7 @@ router.post('/add', async (req, res) => {
     const { usuario_id, tmdb_id, comentario } = req.body;
   try {
     await pool.query('INSERT INTO Comentarios (usuario_id, tmdb_id, comentario) VALUES ($1, $2, $3)', [usuario_id, tmdb_id, comentario]);
+
     res.status(201).json({ 
       success: true,
       message: 'Comentário adicionado com sucesso' 

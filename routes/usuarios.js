@@ -22,33 +22,37 @@ router.get('/', async (req, res) => {
 // Rota para login
 router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
-
+ 
     try {
         const result = await pool.query('SELECT * FROM Usuarios WHERE email = $1 AND deleted_at IS NULL', [email]);
 
         if (result.rows.length > 0) {
             const user = result.rows[0];
-
-            const isMatch = await bcrypt.compare(senha, user.usuario_senha);
-
-            if (isMatch) {
-                delete user.usuario_senha;
-                res.status(200).json({
-                    success: true,
-                    data: user,
-                });
+        
+            if (user.senha) {  // Verifica se a senha existe no objeto retornado
+                const isMatch = await bcrypt.compare(senha, user.senha);
+                
+                if (isMatch) {
+                    delete user.senha;
+                    res.status(200).json({
+                        success: true,
+                        data: user,
+                    });
+                } else {
+                    res.status(401).json({
+                        success: false,
+                        message: 'Usuário ou senha inválidos',
+                    });
+                }
             } else {
-                res.status(401).json({
+                console.error('Senha não encontrada no banco de dados para o usuário.');
+                res.status(500).json({
                     success: false,
-                    message: 'Usuário ou senha inválidos',
+                    message: 'Erro interno do servidor',
                 });
             }
-        } else {
-            res.status(401).json({
-                success: false,
-                message: 'Usuário ou senha inválidos',
-            });
         }
+        
     } catch (error) {
         res.status(500).json({
             success: false,

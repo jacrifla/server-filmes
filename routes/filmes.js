@@ -21,8 +21,22 @@ router.get('/', async (req, res) => {
 // Rota para adicionar um filme
 router.post('/add', async (req, res) => {
   const { tmdb_id } = req.body;
+
   try {
+      // Verificar se o tmdb_id já está na tabela
+      const result = await pool.query('SELECT * FROM Filmes WHERE tmdb_id = $1', [tmdb_id]);
+
+      if (result.rows.length > 0) {
+          // Se o tmdb_id já existir, retorna uma mensagem informando que já foi adicionado
+          return res.status(400).send({ 
+              success: false, 
+              message: 'Filme já adicionado.',
+          });
+      }
+
+      // Se o tmdb_id não existir, insira o novo filme
       await pool.query('INSERT INTO Filmes (tmdb_id) VALUES ($1)', [tmdb_id]);
+
       res.status(201).send({ 
         success: true, 
         message: 'Filme adicionado com sucesso',

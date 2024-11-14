@@ -10,4 +10,6 @@ const pool = new Pool({
     port: process.env.PORT_DATABASE,
 });
 
-module.exports = pool;
+module.exports = {
+    query: (text, params) => pool.query(text, params),
+};

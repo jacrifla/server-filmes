@@ -2,6 +2,24 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db/pool');
 
+// Consultar todas as avaliações
+router.get('/all', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT * FROM avaliacoes WHERE deleted_at IS NULL ORDER BY id');
+    res.status(200).json({
+      success: true,
+      data: result.rows
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Erro:'+ error.message,
+    })
+  }
+
+});
+
+
 // Rota para obter todas as avaliações
 router.get('/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
@@ -43,6 +61,15 @@ router.post('/add', async (req, res) => {
   }
 
   try {
+    const checkExistence = await pool.query('SELECT * FROM Avaliacoes WHERE usuario_id = $1 AND tmdb_id = $2', [usuario_id, tmdb_id]);
+
+    if (checkExistence.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Já avaliou esse filme',
+      });
+    }
+
     // Inserir avaliação, sem verificar previamente a existência do filme
     await pool.query('INSERT INTO Avaliacoes (usuario_id, tmdb_id, nota) VALUES ($1, $2, $3)', [usuario_id, tmdb_id, nota]);
 
