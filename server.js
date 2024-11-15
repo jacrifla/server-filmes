@@ -4,7 +4,6 @@ const usuariosRouter = require('./routes/usuarios');
 const filmesRouter = require('./routes/filmes');
 const comentariosRouter = require('./routes/comentarios');
 const avaliacoesRouter = require('./routes/avaliacoes');
-const listasFavoritasRouter = require('./routes/listasFavoritas');
 const listaAssistirRouter = require('./routes/listaAssistir');
 
 require('dotenv').config();
@@ -26,7 +25,6 @@ app.use('/usuarios', usuariosRouter);
 app.use('/filmes', filmesRouter);
 app.use('/comentarios', comentariosRouter);
 app.use('/avaliacoes', avaliacoesRouter);
-app.use('/listas_favoritas', listasFavoritasRouter);
 app.use('/lista_assistir', listaAssistirRouter);
 
 // Tratamento de erros
