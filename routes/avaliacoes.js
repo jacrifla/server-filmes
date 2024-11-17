@@ -13,7 +13,7 @@ router.get('/all', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Erro:'+ error.message,
+      error: 'Erro:' + error.message,
     })
   }
 
@@ -41,7 +41,7 @@ router.get('/:tmdb_id', async (req, res) => {
       data: result.rows
     });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Erro: ' + error.message,
     });
@@ -61,7 +61,7 @@ router.post('/add', async (req, res) => {
   }
 
   try {
-    const checkExistence = await pool.query('SELECT * FROM Avaliacoes WHERE usuario_id = $1 AND tmdb_id = $2', [usuario_id, tmdb_id]);
+    const checkExistence = await pool.query('SELECT * FROM Avaliacoes WHERE usuario_id = $1 AND tmdb_id = $2 AND deleted_at IS NULL', [usuario_id, tmdb_id]);
 
     if (checkExistence.rows.length > 0) {
       return res.status(400).json({
@@ -97,20 +97,21 @@ router.post('/add', async (req, res) => {
 
 // Rota para atualizar uma avaliação
 router.put('/update/:id', async (req, res) => {
-    const { id } = req.params;
-    const { nota } = req.body;
-    try {
-      await pool.query('UPDATE Avaliacoes SET nota = $1 WHERE id = $2', [nota, id]);
-      res.json({
-        success: true,
-        message: 'Avaliação editada com sucesso'
-      });
-    } catch (error) {
-      res.status(500).json({ 
+  const { id } = req.params;
+  const { nota } = req.body;
+  try {
+    await pool.query('UPDATE Avaliacoes SET nota = $1 WHERE id = $2', [nota, id]);
+    res.json({
+      success: true,
+      message: 'Avaliação editada com sucesso'
+    });
+  } catch (error) {
+    console.error("Erro no servidor ao tentar atualizar avaliação:", error);
+    res.status(500).json({
       success: false,
       error: 'Erro: ' + error.message,
-      });
-    }
+    });
+  }
 });
 
 router.delete('/:id', async (req, res) => {
