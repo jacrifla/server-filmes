@@ -20,25 +20,27 @@ router.get('/all', async (req, res) => {
 });
 
 
-// Rota para obter todas as avaliações
-router.get('/:tmdb_id', async (req, res) => {
-  const { tmdb_id } = req.params;
-
+// Rota para obter a avaliação de um usuário para um filme específico
+router.get('/:tmdb_id/:usuario_id', async (req, res) => {
+  const { tmdb_id, usuario_id } = req.params;
   try {
-    const result = await pool.query('SELECT * FROM avaliacoes WHERE tmdb_id = $1 AND deleted_at IS NULL', [tmdb_id]);
+    const result = await pool.query(
+      'SELECT * FROM avaliacoes WHERE tmdb_id = $1 AND usuario_id = $2 AND deleted_at IS NULL',
+      [tmdb_id, usuario_id]
+    );
 
     // Verifica se não encontrou nenhuma avaliação
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "Nenhuma avaliação encontrada para o filme"
+        message: "Nenhuma avaliação encontrada para esse filme e usuário."
       });
     }
 
-    // Retorna as avaliações encontradas
+    // Retorna a avaliação encontrada
     res.status(200).json({
       success: true,
-      data: result.rows
+      data: result.rows[0]
     });
   } catch (error) {
     res.status(500).json({
@@ -47,6 +49,7 @@ router.get('/:tmdb_id', async (req, res) => {
     });
   }
 });
+
 
 // Rota para adicionar uma avaliação
 router.post('/add', async (req, res) => {
@@ -96,11 +99,28 @@ router.post('/add', async (req, res) => {
 });
 
 // Rota para atualizar uma avaliação
-router.put('/update/:id', async (req, res) => {
-  const { id } = req.params;
-  const { nota } = req.body;
+router.put('/update/:usuario_id/:tmdb_id', async (req, res) => {
+  const { usuario_id, tmdb_id } = req.params;  // Pegando os parâmetros
+  const { nota } = req.body;  // Pegando o corpo da requisição
+  
   try {
-    await pool.query('UPDATE Avaliacoes SET nota = $1 WHERE id = $2', [nota, id]);
+    // Verificando se a avaliação existe para o usuário e o filme
+    const result = await pool.query(
+      'SELECT id FROM Avaliacoes WHERE usuario_id = $1 AND tmdb_id = $2', 
+      [usuario_id, tmdb_id]
+    );
+
+    if (result.rows.length === 0) {
+      // Caso não exista, retorna um erro ou uma mensagem indicando que não encontrou a avaliação
+      return res.status(404).json({
+        success: false,
+        message: 'Avaliação não encontrada para este filme e usuário'
+      });
+    }
+
+    // Caso a avaliação exista, atualiza a avaliação
+    await pool.query('UPDATE Avaliacoes SET nota = $1 WHERE usuario_id = $2 AND tmdb_id = $3', [nota, usuario_id, tmdb_id]);
+
     res.json({
       success: true,
       message: 'Avaliação editada com sucesso'
@@ -113,6 +133,7 @@ router.put('/update/:id', async (req, res) => {
     });
   }
 });
+
 
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;

@@ -28,15 +28,15 @@ router.get('/:tmdb_id', async (req, res) => {
       return res.status(404).json({
         success: false,
         message: 'Comentários não encontrados para este filme',
-      })
+      });
     }
 
     res.status(200).json({
       success: true,
       data: result.rows
-    })
+    });
   } catch (error) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Erro: ' + error.message,
     });
@@ -45,19 +45,25 @@ router.get('/:tmdb_id', async (req, res) => {
 
 // Adicionar um comentário
 router.post('/add', async (req, res) => {
-    const { usuario_id, tmdb_id, comentario } = req.body;
+  const { usuario_id, tmdb_id, comentario } = req.body;
   try {
-    await pool.query('INSERT INTO Comentarios (usuario_id, tmdb_id, comentario) VALUES ($1, $2, $3)', [usuario_id, tmdb_id, comentario]);
+      const result = await pool.query(
+          'INSERT INTO Comentarios (usuario_id, tmdb_id, comentario) VALUES ($1, $2, $3) RETURNING *', 
+          [usuario_id, tmdb_id, comentario]
+      );
 
-    res.status(201).json({ 
-      success: true,
-      message: 'Comentário adicionado com sucesso' 
-    });
+      const newComment = result.rows[0]; // Agora pegamos o comentário inserido
+
+      res.status(201).json({ 
+          success: true,
+          message: 'Comentário adicionado com sucesso',
+          data: newComment
+      });
   } catch (error) {
-    res.status(500).json({ 
-      success: false,
-      error: 'Erro: ' + error.message,
-    });
+      res.status(500).json({ 
+          success: false,
+          error: 'Erro: ' + error.message,
+      });
   }
 });
 
