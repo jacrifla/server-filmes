@@ -15,7 +15,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 
 app.use(cors({
-  origin: 'http://127.0.0.1:5500', // Permitir apenas esta origem
+  origin: ['http://127.0.0.1:5500', 'https://procura-filmes.netlify.app'], // Permitir apenas estas origens
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // Métodos permitidos
   allowedHeaders: ['Content-Type', 'Authorization'], // Cabeçalhos permitidos
 }));
