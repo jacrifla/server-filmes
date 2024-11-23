@@ -19,6 +19,35 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Rota para obter somente 1 usuário
+router.get('/:id', async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const result = await pool.query('SELECT * FROM Usuarios WHERE id = $1 AND deleted_at IS NULL', [id]);
+
+        // Verifica se o usuário foi encontrado
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Usuário não encontrado',
+            });
+        }
+
+        // Retorna o usuário encontrado
+        res.status(200).json({
+            success: true,
+            data: result.rows[0],
+        });
+    } catch (error) {
+        console.error('Erro ao buscar usuário:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Erro interno ao buscar usuário',
+        });
+    }
+});
+
 // Rota para login
 router.post('/login', async (req, res) => {
     const { email, senha } = req.body;
