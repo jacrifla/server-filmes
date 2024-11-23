@@ -19,6 +19,36 @@ router.get('/all', async (req, res) => {
 
 });
 
+// Rota para obter as avalicoes de um usuario
+router.get('/:usuario_id', async (req, res) => {
+  const { usuario_id } = req.params;
+  
+  try {
+    const result = await pool.query(
+      'SELECT * FROM avaliacoes WHERE usuario_id = $1 AND deleted_at IS NULL', 
+      [usuario_id]
+    );
+
+    // Verifica se não encontrou nenhuma avaliação
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: 'Nenhuma avaliação encontrada para esse usuário.',
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: result.rows
+    })
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Erro: ' + error.message,
+    })
+  }
+});
+
 
 // Rota para obter a avaliação de um usuário para um filme específico
 router.get('/:tmdb_id/:usuario_id', async (req, res) => {
