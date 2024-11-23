@@ -46,26 +46,40 @@ router.get('/:tmdb_id', async (req, res) => {
 // Adicionar um comentário
 router.post('/add', async (req, res) => {
   const { usuario_id, tmdb_id, comentario } = req.body;
+
   try {
-      const result = await pool.query(
-          'INSERT INTO Comentarios (usuario_id, tmdb_id, comentario) VALUES ($1, $2, $3) RETURNING *', 
-          [usuario_id, tmdb_id, comentario]
-      );
+    // Verifica se o filme já existe na tabela Filmes
+    const movieResult = await pool.query('SELECT * FROM Filmes WHERE tmdb_id = $1', [tmdb_id]);
 
-      const newComment = result.rows[0]; // Agora pegamos o comentário inserido
+    // Se o filme não existir, insere o tmdb_id na tabela Filmes
+    if (movieResult.rows.length === 0) {
+      await pool.query('INSERT INTO Filmes (tmdb_id) VALUES ($1)', [tmdb_id]);
+      console.log(`Filme com tmdb_id ${tmdb_id} inserido na tabela Filmes.`);
+    }
 
-      res.status(201).json({ 
-          success: true,
-          message: 'Comentário adicionado com sucesso',
-          data: newComment
-      });
+    // Agora insere o comentário na tabela Comentarios
+    const result = await pool.query(
+      'INSERT INTO Comentarios (usuario_id, tmdb_id, comentario) VALUES ($1, $2, $3) RETURNING *',
+      [usuario_id, tmdb_id, comentario]
+    );
+
+    const newComment = result.rows[0];
+
+    // Retorna uma resposta de sucesso
+    res.status(201).json({
+      success: true,
+      message: 'Comentário adicionado com sucesso',
+      data: newComment
+    });
   } catch (error) {
-      res.status(500).json({ 
-          success: false,
-          error: 'Erro: ' + error.message,
-      });
+    console.error('Erro ao salvar comentário:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Erro: ' + error.message,
+    });
   }
 });
+
 
 // Editar um comentário
 router.put('/update/:id', async (req, res) => {
