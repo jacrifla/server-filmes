@@ -8,11 +8,20 @@ function validateId(id) {
 }
 
 // Função para buscar o filme na lista
-async function findFilmList(usuario, tmdb) {
-    return await pool.query(
-        'SELECT * FROM lista_assistir WHERE usuario_id = $1 AND tmdb_id = $2 AND deleted_at IS NULL', 
-        [usuario, tmdb]
-    );
+async function findFilmList(usuario, tmdb, status = null, deleted_at = null) {
+    let query = 'SELECT * FROM lista_assistir WHERE usuario_id = $1 AND tmdb_id = $2';
+    const params = [usuario, tmdb];
+
+    if (status) {
+        query += ' AND status = $3';
+        params.push(status);
+    }
+    
+    if (deleted_at !== null) {
+        query += ' AND deleted_at IS NULL';
+    }
+
+    return await pool.query(query, params);
 }
 
 // Função para padronizar a resposta
@@ -113,86 +122,111 @@ router.post('/checkFilmInList', async (req, res) => {
         const result = await findFilmList(usuario_id, tmdb_id);
         const exists = result.rows.length > 0;
         sendResponse(res, 200, true, exists ? "Filme encontrado na lista" : "Filme não encontrado na lista", { exists });
+
     } catch (error) {
         console.error('Erro ao verificar se o filme está na lista:', error);
         sendResponse(res, 500, false, 'Erro no servidor ao verificar filme na lista');
     }
 });
 
-// Rota para adicionar um filme à lista "para assistir"
-router.post('/add', async (req, res) => {
-    const { usuario_id, tmdb_id, status } = req.body;
+// Adicionar ou alterar filme na lista
+router.post('/film', async (req, res) => {
+
+    const { tmdb_id, usuario_id, status } = req.body;
+
+    if (!tmdb_id || !usuario_id || !status) {
+        sendResponse(res, 400, false, 'Dados obrigatórios')
+        return;
+    }
 
     try {
-        const checkFilm = await pool.query('SELECT * FROM filmes WHERE tmdb_id = $1', [tmdb_id]);
+        const filmeResult = await pool.query(
+            'SELECT * FROM filmes WHERE tmdb_id = $1',
+            [tmdb_id]
+        )
 
-        if (checkFilm.rows.length === 0) {
-            await pool.query('INSERT INTO filmes (tmdb_id) VALUES ($1)', [tmdb_id]);
+        if (filmeResult.rows.length === 0) {
+            await pool.query('INSERT INTO Filmes (tmdb_id) VALUES ($1)', [tmdb_id]);
         }
-
-        const existsResult = await findFilmList(usuario_id, tmdb_id);
-
-        if (existsResult.rows.length > 0) {
-            return sendResponse(res, 200, false, 'Este filme já está na sua lista para assistir.');
-        }
-
-        await pool.query(
-            'INSERT INTO lista_assistir (usuario_id, tmdb_id, status) VALUES ($1, $2, $3)',
-            [usuario_id, tmdb_id, status]
-        );
-
-        sendResponse(res, 201, true, 'Filme adicionado à lista para assistir.');
-    } catch (err) {
-        console.error('Erro ao adicionar filme à lista para assistir:', err);
-        sendResponse(res, 500, false, 'Erro ao adicionar filme à lista para assistir.');
+        
+        const query = `
+            INSERT INTO lista_assistir (usuario_id, tmdb_id, status)
+            VALUES ($1, $2, $3)
+            ON CONFLICT (usuario_id, tmdb_id)
+            DO UPDATE SET 
+               status = $3,
+               deleted_at = NULL
+            RETURNING *;
+        `
+        const result = await pool.query(query, [usuario_id, tmdb_id, status]);
+        sendResponse(res, 201, true, 'Filme adicionado à lista', result.rows[0]);
+    } catch (error) {
+        console.error('Erro ao adicionar filme à lista:', error);
+        sendResponse(res, 500, false, 'Erro ao processar a requisição');        
     }
 });
 
-// Rota para marcar um filme como assistido
-router.put('/mark', async (req, res) => {
+// Restaurar
+router.put('/restore', async (req, res) => {
     const { usuario_id, tmdb_id } = req.body;
     try {
-        const existsResult = await findFilmList(usuario_id, tmdb_id);
-
+        const existsResult = await pool.query(
+            'SELECT * FROM Lista_Assistir WHERE usuario_id = $1 AND tmdb_id = $2 AND deleted_at IS NOT NULL', 
+            [usuario_id, tmdb_id]
+        )
+        
         if (existsResult.rows.length === 0) {
             return sendResponse(res, 404, false, 'Filme não encontrado na lista para assistir.');
-        }
+        };
 
-        const alreadyWatched = existsResult.rows.some(row => row.status === 'assistido');
-
-        if (alreadyWatched) {
-            return sendResponse(res, 400, false, 'Filme já está marcado como assistido.');
-        }
-
+        // Restaura o registro da tabela Lista_Assistir
         await pool.query(
-            'UPDATE Lista_Assistir SET status = $1 WHERE usuario_id = $2 AND tmdb_id = $3 AND deleted_at IS NULL',
-            ['assistido', usuario_id, tmdb_id]
+            'UPDATE Lista_Assistir SET deleted_at = NULL WHERE usuario_id = $1 AND tmdb_id = $2',
+            [usuario_id, tmdb_id]
         );
 
-        sendResponse(res, 200, true, 'Filme marcado como assistido');
-    } catch (err) {
-        sendResponse(res, 500, false, err.message);
+        sendResponse(res, 200, true, 'Filme restaurado');
+    } catch (error) {
+        sendResponse(res, 500, false, 'Erro ao restaurar');        
     }
-});
+})
 
 // Rota para remover um filme da lista (soft delete)
 router.delete('/remove', async (req, res) => {
     const { usuario_id, tmdb_id } = req.body;
     try {
-        const existsResult = await findFilmList(usuario_id, tmdb_id);
-
-        if (existsResult.rows.length === 0) {
-            return sendResponse(res, 404, false, 'Filme não encontrado na lista para assistir.');
-        }
-
-        await pool.query(
-            'UPDATE Lista_Assistir SET deleted_at = CURRENT_TIMESTAMP WHERE usuario_id = $1 AND tmdb_id = $2 AND deleted_at IS NULL',
+        // Atualiza a data de exclusão e o status do filme
+        const result = await pool.query(
+            `UPDATE Lista_Assistir 
+            SET deleted_at = CURRENT_TIMESTAMP, status = NULL 
+            WHERE usuario_id = $1 AND tmdb_id = $2 
+            AND deleted_at IS NULL`,
             [usuario_id, tmdb_id]
         );
 
-        sendResponse(res, 200, true, 'Filme removido da lista para assistir.');
+        if (result.rowCount > 0) {
+            sendResponse(res, 200, true, 'Filme removido da lista.');
+        } else {
+            sendResponse(res, 404, false, 'Filme não encontrado ou já removido.');
+        }
     } catch (err) {
         sendResponse(res, 500, false, err.message);
+    }
+});
+
+// remover completamente
+router.delete('/remove/:usuario_id/:tmdb_id', async (req, res) => {
+    const { usuario_id, tmdb_id } = req.params;
+    try {
+        // Deleta o registro da tabela Lista_Assistir
+        await pool.query(
+            'DELETE FROM Lista_Assistir WHERE usuario_id = $1 AND tmdb_id = $2',
+            [usuario_id, tmdb_id]
+        );
+
+        return res.status(200).json({ success: true, message: 'Filme removido da lista de assistidos com sucesso.' });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: 'Erro interno do servidor.' });
     }
 });
 
