@@ -22,18 +22,14 @@ router.get('/all', async (req, res) => {
 router.get('/:tmdb_id', async (req, res) => {
   const { tmdb_id } = req.params;
   try {
-    const result = await pool.query('SELECT * FROM Comentarios WHERE tmdb_id = $1 AND deleted_at IS NULL', [tmdb_id]);
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Comentários não encontrados para este filme',
-      });
-    }
+    const result = await pool.query(
+      'SELECT * FROM Comentarios WHERE tmdb_id = $1 AND deleted_at IS NULL',
+      [tmdb_id]
+    );
 
     res.status(200).json({
       success: true,
-      data: result.rows
+      data: result.rows,
     });
   } catch (error) {
     res.status(500).json({
@@ -42,6 +38,7 @@ router.get('/:tmdb_id', async (req, res) => {
     });
   }
 });
+
 
 // Adicionar um comentário
 router.post('/add', async (req, res) => {

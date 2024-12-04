@@ -59,11 +59,11 @@ router.get('/:tmdb_id/:usuario_id', async (req, res) => {
       [tmdb_id, usuario_id]
     );
 
-    // Verifica se não encontrou nenhuma avaliação
+    // Se não encontrou nenhuma avaliação, retorna nota 0
     if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Nenhuma avaliação encontrada para esse filme e usuário."
+      return res.status(200).json({
+        success: true,
+        data: { nota: 0 }, // Garante que a nota seja 0 por padrão
       });
     }
 
